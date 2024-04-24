@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from ProductsApp.models import Product, ProductImage, Likes
+from ProductsApp.models import AppFile, Product, ProductImage, Likes
 
 
 class ImageSerializer(serializers.ModelSerializer):
@@ -82,3 +82,9 @@ class ImageDeleteSerializer(serializers.Serializer):
 class ConfirmOrRejectSerializer(serializers.Serializer):
     product_id = serializers.IntegerField()
     action = serializers.BooleanField()
+
+
+class AppFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppFile
+        fields = ('id', 'name', 'file', 'version', 'created_at')

@@ -23,8 +23,8 @@ sms_token = ""
 def refresh_token():
     url = "https://notify.eskiz.uz/api/auth/login"
     payload = {
-        'email': 'daliyevazizbekk@gmail.com',
-        'password': '1dIHqeYNyv99bLw0dpAtY6v99rTByo8QiLXbTeaP'
+        'email': 'drkoffical001@gmail.com',
+        'password': 'SS40484ADvjLbc5UnqZHvLLlZLQJcKdSyMxb0JiG'
     }
     response = requests.request("POST", url, data=payload)
     print('>>>>>>>refreshdagi resposse status: ', response.status_code)
@@ -43,8 +43,6 @@ class RegisterApi(APIView):
         sms_token = refresh_token()
         code = randint(123467, 987654)
         request.data['smsCode'] = code
-        print(code)
-        print('>>>> postdagi sms token', sms_token)
         serializer = UserVerificationSerializer(data=request.data)
         if serializer.is_valid():
             phone_number = serializer.validated_data['username']
@@ -61,26 +59,13 @@ class RegisterApi(APIView):
             headers = {
                 'Authorization': f"Bearer {sms_token}",
             }
-            message = f"Telmee sayti uchun tasdiqlash ko'dingiz: {code}"
+            message = f'Avtorizatsiya uchun kod: {code}'
             payload = {
                 'mobile_phone': str(phone_number),
-                'message': 'Eskiz Test',
+                'message': message,
                 'from': '4546',
             }
-            print("\n###################################################################\n")
-            print('payload: ', payload)
-            print('headers: ', headers)
             response = requests.post(url=url2, headers=headers, data=payload)
-            print('>>>>>>>>sms response: ', response)
-            print('>>>>>>>>sms response status: ', response.status_code)
-            # if response.status_code != 200:
-            #     sms_token = refresh_token()
-            #     headers = {
-            #         'Authorization': f'Bearer {sms_token}'
-            #     }
-            #     response = requests.post(url=url2, data=payload, headers=headers)
-            #     print('>>>status code after refresh token', response.status_code)
-            #     print('>>>headers after refresh token', headers)
             if response.status_code == 200:
                 serializer.save()
                 return Response(data={"Tasdiqlash code jonatildi"}, status=200)
@@ -126,10 +111,12 @@ class RecoverPasswordApi(APIView):
             headers = {
                 'Authorization': f'Bearer {sms_token}'
             }
-            message = f"Telmee sayti uchun parol tiklash uchun kodingiz: {code}"
-            payload = {'mobile_phone': phone_number,
-                       'message': message,
-                       'from': 'Telmee'}
+            message = f'Avtorizatsiya uchun kod: {code}'
+            payload = {
+                'mobile_phone': str(phone_number),
+                'message': message,
+                'from': '4546',
+            }
             response = requests.post(url=url2, data=payload, headers=headers)
             if response.status_code != 200:
                 sms_token = refresh_token()

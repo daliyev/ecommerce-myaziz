@@ -3,6 +3,8 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -14,4 +16,4 @@ urlpatterns = [
     path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     path('token/', TokenObtainPairView.as_view()),
     path('refresh_token/', TokenRefreshView.as_view()),
-]
+]  + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

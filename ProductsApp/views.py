@@ -9,8 +9,8 @@ from utils.imports import *
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Product, Views, Likes, ProductImage
-from .serializers import ProductSerializer, ImageSerializer, ProductGetSerializer, IdSerializer, ImageDeleteSerializer, \
+from .models import Product, Views, Likes, ProductImage, AppFile
+from .serializers import AppFileSerializer, ProductSerializer, ImageSerializer, ProductGetSerializer, IdSerializer, ImageDeleteSerializer, \
     ConfirmOrRejectSerializer
 from .functions import one_product
 
@@ -252,3 +252,13 @@ class ConfirmOrRejectApi(APIView):
             Product.objects.filter(id=product_id).update(status=3)
             return Response(success, 200)
         return CustomException(serializer.errors)
+
+
+class FileDownloadApi(APIView):
+    serializer_class = AppFileSerializer
+
+    def get(self, request):
+        latest_file = AppFile.objects.latest('created_at')
+        serializer = AppFileSerializer(latest_file,  context={'request': request})
+        return Response(serializer.data, 200)
+

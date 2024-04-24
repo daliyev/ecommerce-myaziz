@@ -43,3 +43,9 @@ class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', db_index=True, on_delete=models.CASCADE)
     image = models.ImageField(upload_to='images')
 
+
+class AppFile(models.Model):
+    name = models.CharField(max_length=100)
+    file = models.FileField(upload_to='upload_files/apk')
+    version = models.CharField(max_length=250, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
