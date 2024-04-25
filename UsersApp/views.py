@@ -27,10 +27,8 @@ def refresh_token():
         'password': 'SS40484ADvjLbc5UnqZHvLLlZLQJcKdSyMxb0JiG'
     }
     response = requests.request("POST", url, data=payload)
-    print('>>>>>>>refreshdagi resposse status: ', response.status_code)
     if response.status_code == 200:
         sms_token = response.json()['data']['token']
-        print('>>>>>refreshdagi sms token: ', sms_token)
         return sms_token
 
 
@@ -66,6 +64,12 @@ class RegisterApi(APIView):
                 'from': '4546',
             }
             response = requests.post(url=url2, headers=headers, data=payload)
+            if response.status_code != 200:
+                sms_token = refresh_token()
+                headers = {
+                    'Authorization': f'Bearer {sms_token}'
+                }
+                response = requests.post(url=url2, data=payload, headers=headers)
             if response.status_code == 200:
                 serializer.save()
                 return Response(data={"Tasdiqlash code jonatildi"}, status=200)
