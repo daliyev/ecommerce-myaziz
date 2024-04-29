@@ -3,7 +3,7 @@ import os
 from time import sleep
 
 import requests
-from rest_framework.pagination import CursorPagination, PageNumberPagination
+from rest_framework.pagination import CursorPagination, PageNumberPagination, LimitOffsetPagination
 
 from utils.imports import *
 from rest_framework.permissions import IsAuthenticated
@@ -212,19 +212,34 @@ class ImageApi(APIView):
         raise CustomException(str(serializer.errors))
 
 
-class MyCursorPagination(CursorPagination):
-    page_size = 7  # Number of items per page
+class MyCursorPagination(PageNumberPagination):
+    page_size = 10  # Number of items per page
     ordering = '-time'  # Ordering by datetime, you can adjust this based on your model
     cursor_query_param = 'cursor'
 
 
-class GetRecentProductApi(APIView, MyCursorPagination):
+class CustomOffSetPagination(LimitOffsetPagination):
+    default_limit = 20
+    max_limit = 500
+
+
+def paginate(instances, serializator, request):
+    paginator = CustomOffSetPagination()
+    paginated_order = paginator.paginate_queryset(instances, request)
+
+    serializer = serializator(paginated_order, many=True, context={'request': request})
+
+    return paginator.get_paginated_response(serializer.data)
+
+
+class GetRecentProductApi(APIView, PageNumberPagination):
     def get(self, request):
         # paginator = MyCursorPagination()
         products = Product.objects.all().order_by('-time')
-        paginated_data = self.paginate_queryset(products, request, view=self)
-        serializer = ProductGetSerializer(paginated_data, many=True, context={'request': request})
-        return self.get_paginated_response(serializer.data)
+        # paginated_data = self.paginate_queryset(products, request, view=self)
+        # serializer = ProductGetSerializer(paginated_data, many=True, context={'request': request})
+        # return self.get_paginated_response(serializer.data)
+        return paginate(products, ProductGetSerializer, request)
 
 
 class ConfirmOrRejectApi(APIView):
