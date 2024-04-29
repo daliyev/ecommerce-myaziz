@@ -212,7 +212,7 @@ class ImageApi(APIView):
         raise CustomException(str(serializer.errors))
 
 
-class MyCursorPagination(PageNumberPagination):
+class MyCursorPagination(CursorPagination):
     page_size = 7  # Number of items per page
     ordering = '-time'  # Ordering by datetime, you can adjust this based on your model
     cursor_query_param = 'cursor'
@@ -221,7 +221,7 @@ class MyCursorPagination(PageNumberPagination):
 class GetRecentProductApi(APIView, MyCursorPagination):
     def get(self, request):
         # paginator = MyCursorPagination()
-        products = Product.objects.all()
+        products = Product.objects.all().order_by('-time')
         paginated_data = self.paginate_queryset(products, request, view=self)
         serializer = ProductGetSerializer(paginated_data, many=True, context={'request': request})
         return self.get_paginated_response(serializer.data)
