@@ -28,6 +28,109 @@ def get_product(product_id):
     return product
 
 
+# class ProductApi(APIView):
+#     serializer_class = ProductSerializer
+#     permission_classes = [IsAuthenticated]
+#
+#     def post(self, request):
+#         serializer = ProductSerializer(data=request.data, context={"request": request})
+#         if serializer.is_valid():
+#             product = serializer.save()
+#             images = ProductImage.objects.filter(product=product).all()
+#             document = "Bor" if serializer.data['document'] else "Yo'q"
+#             new = "Yangi" if serializer.data['isNew'] else "Foydalanilgan"
+#             caption = f"ID: {product.id}\n\n📱Nomi: {serializer.data['phoneName']}\n📍Model: {serializer.data['phoneMarka']}\n💰Narxi: {serializer.data['cost']} {serializer.data['costType']}\n💾Xotirasi: {serializer.data['phoneMemory']}\n🎨Rangi: {serializer.data['phoneColor']}\n📦Dokument: {document}\n⚙️Xolati: {new}\n🛠Qo'shimcha: {serializer.data['comment']}\n📌Manzil: {serializer.data['adress']}\n✉️Telegram: {serializer.data['telegram']}"
+#             url = f'https://api.telegram.org/bot{marketing_token}/sendMediaGroup'
+#             url2 = f'https://api.telegram.org/bot{marketing_token}/sendMessage'
+#             inline_keyboard = {
+#                 'inline_keyboard': [
+#                     [
+#                         {'text': 'Tasdiqlash', 'callback_data': f"prconfirm_{product.id}"},
+#                         {'text': 'Qaytarish', 'callback_data': f"prreject_{product.id}"}
+#                     ]
+#                 ]
+#             }
+#             media = []
+#             for image in images:
+#                 media.append({'type': 'photo', 'media': f"https://telmee.4fun.uz/media/{image.image}"})
+#             media[-1]['caption'] = caption
+#             reply_markup = json.dumps(inline_keyboard)
+#             data = {
+#                 'chat_id': chat_id,
+#                 'media': media,
+#             }
+#             data2 = {
+#                 'chat_id': chat_id,
+#                 'text': f"Yangi elon joylandi(id:{product.id})",
+#                 'reply_markup': reply_markup
+#             }
+#
+#             requests.post(url, json=data)
+#             requests.post(url2, data2)
+#             print(Response.status_code)
+#             return Response(data=success, status=201)
+#         return Response(data=serializer.errors, status=400)
+#
+#     def get(self, request):
+#         products = request.user.product.all()
+#         serializer = ProductGetSerializer(products, many=True, context={"request": request})
+#         return Response(data=serializer.data, status=200)
+#
+#     def put(self, request):
+#         serializer = ProductSerializer(data=request.data)
+#         if serializer.is_valid():
+#             product = request.user.product.filter(id=request.data['id']).first()
+#             if not product:
+#                 raise CustomException(restricted)
+#             product.__dict__.update(**serializer.validated_data)
+#             product.save()
+#             return Response(success, 200)
+#         return Response(serializer.errors, 400)
+#
+#     def delete(self, request):
+#         product_id = request.query_params.get('id', None)
+#         if product_id:
+#             product = Product.objects.filter(id=product_id).first()
+#             if product:
+#                 product.delete()
+#                 return Response(data=success, status=200)
+#             return Response(data=none, status=400)
+#         return Response(data=value_e, status=400)
+
+
+class ProductFilterApi(APIView):
+    def get(self, request):
+        products = Product.objects
+        name = request.query_params.get('name', None)
+        location = request.query_params.get('location', None)
+        condition = request.query_params.get('condition', None)
+        model = request.query_params.get('model', None)
+        currency = request.query_params.get('currency', None)
+        min_price = request.query_params.get('min_price', None)
+        max_price = request.query_params.get('max_price', None)
+        if name:
+            products = products.filter(phoneName__icontains=name)
+        if location:
+            products = products.filter(adress__icontains=location)
+        if condition:
+            if condition == "NEW":
+                products = products.filter(isNew=True)
+            else:
+                products = products.filter(isNew=False)
+        if model:
+            products = products.filter(phoneMarka__icontains=model)
+        if currency:
+            products = products.filter(costType=currency)
+        if min_price:
+            products = products.filter(cost__gte=min_price)
+        if max_price:
+            products = products.filter(cost__lte=max_price)
+        products = products.all().order_by("?")
+
+        serializer = ProductGetSerializer(products, many=True, context={"request": request})
+        return Response(data=serializer.data, status=200)
+
+
 class ProductApi(APIView):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
@@ -97,59 +200,48 @@ class ProductApi(APIView):
         return Response(data=value_e, status=400)
 
 
-class ProductFilterApi(APIView):
-    def get(self, request):
-        products = Product.objects
-        name = request.query_params.get('name', None)
-        location = request.query_params.get('location', None)
-        condition = request.query_params.get('condition', None)
-        model = request.query_params.get('model', None)
-        currency = request.query_params.get('currency', None)
-        min_price = request.query_params.get('min_price', None)
-        max_price = request.query_params.get('max_price', None)
-        if name:
-            products = products.filter(phoneName__icontains=name)
-        if location:
-            products = products.filter(adress__icontains=location)
-        if condition:
-            if condition == "NEW":
-                products = products.filter(isNew=True)
-            else:
-                products = products.filter(isNew=False)
-        if model:
-            products = products.filter(phoneMarka__icontains=model)
-        if currency:
-            products = products.filter(costType=currency)
-        if min_price:
-            products = products.filter(cost__gte=min_price)
-        if max_price:
-            products = products.filter(cost__lte=max_price)
-        products = products.all().order_by("?")
-
-        serializer = ProductGetSerializer(products, many=True, context={"request": request})
-        return Response(data=serializer.data, status=200)
-
-
 class OneProductApi(APIView):
-
     def get(self, request):
-        product_id = request.query_params.get("id", None)
-        product = Product.objects.filter(id=product_id).first()
-        serializer = ProductGetSerializer(product, context={"request": request, 'one': True})
-        if request.user.is_authenticated:
-            view = Views.objects.filter(user=request.user, product=product).first()
-            like = Likes.objects.filter(user=request.user, product=product).first()
-            data = serializer.data
-            if not view:
-                Views.objects.create(user=request.user, product=product)
-            if like:
-                likes_count = product.liked.count()
-                data['likes'] = likes_count
-            views_count = product.views.count()
-            data['views'] = views_count
+        try:
+            product_id = request.query_params.get("id", None)
+            print("product_id: ", product_id)
+            product = Product.objects.filter(id=product_id).first()
+            print("product: ", product)
+            serializer = ProductGetSerializer(product, context={"request": request, 'one': True})
 
-            return Response(data=data, status=200)
-        return Response(serializer.data, status=200)
+            if product is None:
+                raise ValueError("Product does not exist.")
+
+            related_products = Product.objects.filter(phoneMarka=product.phoneMarka, adress=product.adress).exclude(id=product.id)[:15]
+            related_serializer = ProductGetSerializer(related_products, many=True, context={"request": request})
+            other_products_by_user = Product.objects.filter(user=product.user).exclude(id=product.id)[:5]
+            user_related_serializer = ProductGetSerializer(other_products_by_user, many=True, context={"request": request})
+            if request.user.is_authenticated:
+                view = Views.objects.filter(user=request.user, product=product).first()
+                like = Likes.objects.filter(user=request.user, product=product).first()
+                data = serializer.data
+                if not view:
+                    Views.objects.create(user=request.user, product=product)
+                if like:
+                    likes_count = product.liked.count()
+                    data['likes'] = likes_count
+                views_count = product.views.count()
+                data['views'] = views_count
+
+                return Response({
+                    'product': data,
+                    'other_products_by_user': user_related_serializer.data,
+                    'related_products': related_serializer.data,
+                }, status=200)
+            return Response({
+                'product': serializer.data,
+                'other_products_by_user': user_related_serializer.data,
+                'related_products': related_serializer.data,
+            }, status=200)
+        except AttributeError as e:
+            return Response({"error": str(e)}, status=400)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
 
 
 class ProductAllApi(APIView):

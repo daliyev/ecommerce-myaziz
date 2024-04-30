@@ -40,6 +40,7 @@ class RegisterApi(APIView):
     def post(self, request):
         sms_token = refresh_token()
         code = randint(123467, 987654)
+        print(">>>>>>code: ", code)
         request.data['smsCode'] = code
         serializer = UserVerificationSerializer(data=request.data)
         if serializer.is_valid():
@@ -89,6 +90,7 @@ class UserVerificationApi(APIView):
                 return Response(data="Sms code amal qilish muddati tugadi", status=400)
             user = User.objects.create_user(username=user.username, phone_number=user.username, password=request.data['password'])
             refresh = RefreshToken.for_user(user)
+            print(refresh)
             UserVerification.objects.filter(username=request.data['username'], password=request.data['password']).delete()
             data = {
                 'message': "Foydalanuvchi muvaffaqiyatli yaratildi",
