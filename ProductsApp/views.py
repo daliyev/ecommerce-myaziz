@@ -1,7 +1,8 @@
 import json
 import os
 from time import sleep
-
+from django.db.models import Q
+from django.contrib.auth.models import User
 import requests
 from django.http import JsonResponse
 from rest_framework.decorators import action, api_view
@@ -129,15 +130,48 @@ class ProductFilterApi(APIView):
             products = products.filter(cost__lte=max_price)
         products = products.all().order_by("?")
 
-        vip_users = User.objects.filter(is_superuser=True).values('id').exclude(username__in=['admin'])
-        vip_users_products = products.filter(id__in=vip_users).order_by('-time')
-        vip_user_products_serializer = ProductGetSerializer(vip_users_products, many=True, context={'request': request})
-        products = products.exclude(id__in=vip_users_products)
-        product_serializer = ProductGetSerializer(products, many=True, context={"request": request})
-        return Response({
-            'vip_user_products': vip_user_products_serializer.data,
-            'products': product_serializer.data
-        }, status=200)
+        serializer = ProductGetSerializer(products, many=True, context={"request": request})
+        return Response(data=serializer.data, status=200)
+
+
+# class ProductFilterApi(APIView):
+#     def get(self, request):
+#         products = Product.objects
+#         name = request.query_params.get('name', None)
+#         location = request.query_params.get('location', None)
+#         condition = request.query_params.get('condition', None)
+#         model = request.query_params.get('model', None)
+#         currency = request.query_params.get('currency', None)
+#         min_price = request.query_params.get('min_price', None)
+#         max_price = request.query_params.get('max_price', None)
+#         if name:
+#             products = products.filter(phoneName__icontains=name)
+#         if location:
+#             products = products.filter(adress__icontains=location)
+#         if condition:
+#             if condition == "NEW":
+#                 products = products.filter(isNew=True)
+#             else:
+#                 products = products.filter(isNew=False)
+#         if model:
+#             products = products.filter(phoneMarka__icontains=model)
+#         if currency:
+#             products = products.filter(costType=currency)
+#         if min_price:
+#             products = products.filter(cost__gte=min_price)
+#         if max_price:
+#             products = products.filter(cost__lte=max_price)
+#         products = products.all().order_by("?")
+#
+#         vip_users = User.objects.filter(is_superuser=True).values('id').exclude(username__in=['admin'])
+#         vip_users_products = products.filter(user__in=vip_users).order_by('-time')
+#         vip_user_products_serializer = ProductGetSerializer(vip_users_products, many=True, context={'request': request})
+#         products = products.exclude(id__in=vip_users_products)
+#         product_serializer = ProductGetSerializer(products, many=True, context={"request": request})
+#         return Response({
+#             'vip_user_products': vip_user_products_serializer.data,
+#             'products': product_serializer.data
+#         }, status=200)
 
 
 class ProductApi(APIView):
@@ -211,45 +245,50 @@ class ProductApi(APIView):
 
 class ProductAllApi(APIView):
     def get(self, request):
-        product_id = request.query_params.get("id", None)
-        if product_id:
-            print("product_id: ", product_id)
-            product = Product.objects.filter(id=product_id).first()
-            print("product: ", product)
-            serializer = ProductGetSerializer(product, context={"request": request, 'one': True})
-
-            if product is None:
-                raise ValueError("Product does not exist.")
-
-            related_products = Product.objects.filter(phoneMarka=product.phoneMarka, adress=product.adress).exclude(id=product.id)[:15]
-            related_serializer = ProductGetSerializer(related_products, many=True, context={"request": request})
-            other_products_by_user = Product.objects.filter(user=product.user).exclude(id=product.id)[:5]
-            user_related_serializer = ProductGetSerializer(other_products_by_user, many=True, context={"request": request})
-            if request.user.is_authenticated:
-                view = Views.objects.filter(user=request.user, product=product).first()
-                like = Likes.objects.filter(user=request.user, product=product).first()
-                data = serializer.data
-                if not view:
-                    Views.objects.create(user=request.user, product=product)
-                if like:
-                    likes_count = product.liked.count()
-                    data['likes'] = likes_count
-                views_count = product.views.count()
-                data['views'] = views_count
-
-                return Response({
-                    'product': data,
-                    'other_products_by_user': user_related_serializer.data,
-                    'related_products': related_serializer.data,
-                }, status=200)
-            return Response({
-                'product': serializer.data,
-                'other_products_by_user': user_related_serializer.data,
-                'related_products': related_serializer.data,
-            }, status=200)
         products = Product.objects.all()
         serializer = ProductGetSerializer(products, many=True, context={"request": request})
         return Response(serializer.data, status=200)
+
+
+@api_view(['GET'])
+def retrieve(request):
+    pk = request.query_params.get("id", None)
+    if pk:
+        print("product_id: ", pk)
+        product = Product.objects.filter(id=pk).first()
+        print("product: ", product)
+        serializer = ProductGetSerializer(product, context={"request": request, 'one': True})
+
+        if product is None:
+            raise ValueError("Product does not exist.")
+
+        related_products = Product.objects.filter(Q(phoneMarka=product.phoneMarka) | Q(adress=product.adress)).exclude(id=product.id)[:15]
+        related_serializer = ProductGetSerializer(related_products, many=True, context={"request": request})
+        other_products_by_user = Product.objects.filter(user=product.user).exclude(id=product.id)[:5]
+        user_related_serializer = ProductGetSerializer(other_products_by_user, many=True, context={"request": request})
+        if request.user.is_authenticated:
+            view = Views.objects.filter(user=request.user, product=product).first()
+            like = Likes.objects.filter(user=request.user, product=product).first()
+            data = serializer.data
+            if not view:
+                Views.objects.create(user=request.user, product=product)
+            if like:
+                likes_count = product.liked.count()
+                data['likes'] = likes_count
+            views_count = product.views.count()
+            data['views'] = views_count
+
+            return Response({
+                'product': data,
+                'other_products_by_user': user_related_serializer.data,
+                'related_products': related_serializer.data,
+            }, status=200)
+        return Response({
+            'product': serializer.data,
+            'other_products_by_user': user_related_serializer.data,
+            'related_products': related_serializer.data,
+        }, status=200)
+    return Response("Product not exist.", 400)
 
 
 class OneProductApi(APIView):
@@ -271,15 +310,6 @@ class OneProductApi(APIView):
 
             return Response(data=data, status=200)
         return Response(serializer.data, status=200)
-
-
-# class ProductAllApi(APIView):
-#     serializer_class = ProductGetSerializer
-#
-#     def get(self, request):
-#         products = Product.objects.all()
-#         serializer = ProductGetSerializer(products, many=True, context={"request": request})
-#         return Response(serializer.data, status=200)
 
 
 class AddLike(APIView):
@@ -358,10 +388,13 @@ class GetRecentProductApi(APIView):
         products = Product.objects.all().order_by('-time')
         return paginate(products, ProductGetSerializer, request)
 
+
 @api_view(['GET'])
-def get_vip_users_products(request):
+def get_vip_user_products(request):
     vip_users = User.objects.filter(is_superuser=True).values('id').exclude(username__in=['admin'])
-    vip_users_products = Product.objects.filter(id__in=vip_users).order_by('-time')
+    print(">>vip users: ", vip_users)
+    vip_users_products = Product.objects.filter(user__in=vip_users).order_by('-time')
+    print(">>vip users product: ", vip_users_products)
     vip_users_products_serializer = ProductGetSerializer(vip_users_products, many=True, context={'request': request})
     return Response(vip_users_products_serializer.data, status=200)
 
