@@ -3,10 +3,12 @@ import os
 from time import sleep
 
 import requests
+from django.http import JsonResponse
+from rest_framework.decorators import action, api_view
 from rest_framework.pagination import CursorPagination, PageNumberPagination, LimitOffsetPagination
 
 from utils.imports import *
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Product, Views, Likes, ProductImage, AppFile
@@ -127,8 +129,15 @@ class ProductFilterApi(APIView):
             products = products.filter(cost__lte=max_price)
         products = products.all().order_by("?")
 
-        serializer = ProductGetSerializer(products, many=True, context={"request": request})
-        return Response(data=serializer.data, status=200)
+        vip_users = User.objects.filter(is_superuser=True).values('id').exclude(username__in=['admin'])
+        vip_users_products = products.filter(id__in=vip_users).order_by('-time')
+        vip_user_products_serializer = ProductGetSerializer(vip_users_products, many=True, context={'request': request})
+        products = products.exclude(id__in=vip_users_products)
+        product_serializer = ProductGetSerializer(products, many=True, context={"request": request})
+        return Response({
+            'vip_user_products': vip_user_products_serializer.data,
+            'products': product_serializer.data
+        }, status=200)
 
 
 class ProductApi(APIView):
@@ -200,10 +209,10 @@ class ProductApi(APIView):
         return Response(data=value_e, status=400)
 
 
-class OneProductApi(APIView):
+class ProductAllApi(APIView):
     def get(self, request):
-        try:
-            product_id = request.query_params.get("id", None)
+        product_id = request.query_params.get("id", None)
+        if product_id:
             print("product_id: ", product_id)
             product = Product.objects.filter(id=product_id).first()
             print("product: ", product)
@@ -238,19 +247,39 @@ class OneProductApi(APIView):
                 'other_products_by_user': user_related_serializer.data,
                 'related_products': related_serializer.data,
             }, status=200)
-        except AttributeError as e:
-            return Response({"error": str(e)}, status=400)
-        except ValueError as e:
-            return Response({"error": str(e)}, status=400)
-
-
-class ProductAllApi(APIView):
-    serializer_class = ProductGetSerializer
-
-    def get(self, request):
         products = Product.objects.all()
         serializer = ProductGetSerializer(products, many=True, context={"request": request})
         return Response(serializer.data, status=200)
+
+
+class OneProductApi(APIView):
+    def get(self, request):
+        product_id = request.query_params.get("id", None)
+        product = Product.objects.filter(id=product_id).first()
+        serializer = ProductGetSerializer(product, context={"request": request, 'one': True})
+        if request.user.is_authenticated:
+            view = Views.objects.filter(user=request.user, product=product).first()
+            like = Likes.objects.filter(user=request.user, product=product).first()
+            data = serializer.data
+            if not view:
+                Views.objects.create(user=request.user, product=product)
+            if like:
+                likes_count = product.liked.count()
+                data['likes'] = likes_count
+            views_count = product.views.count()
+            data['views'] = views_count
+
+            return Response(data=data, status=200)
+        return Response(serializer.data, status=200)
+
+
+# class ProductAllApi(APIView):
+#     serializer_class = ProductGetSerializer
+#
+#     def get(self, request):
+#         products = Product.objects.all()
+#         serializer = ProductGetSerializer(products, many=True, context={"request": request})
+#         return Response(serializer.data, status=200)
 
 
 class AddLike(APIView):
@@ -324,14 +353,17 @@ def paginate(instances, serializator, request):
     return paginator.get_paginated_response(serializer.data)
 
 
-class GetRecentProductApi(APIView, PageNumberPagination):
+class GetRecentProductApi(APIView):
     def get(self, request):
-        # paginator = MyCursorPagination()
         products = Product.objects.all().order_by('-time')
-        # paginated_data = self.paginate_queryset(products, request, view=self)
-        # serializer = ProductGetSerializer(paginated_data, many=True, context={'request': request})
-        # return self.get_paginated_response(serializer.data)
         return paginate(products, ProductGetSerializer, request)
+
+@api_view(['GET'])
+def get_vip_users_products(request):
+    vip_users = User.objects.filter(is_superuser=True).values('id').exclude(username__in=['admin'])
+    vip_users_products = Product.objects.filter(id__in=vip_users).order_by('-time')
+    vip_users_products_serializer = ProductGetSerializer(vip_users_products, many=True, context={'request': request})
+    return Response(vip_users_products_serializer.data, status=200)
 
 
 class ConfirmOrRejectApi(APIView):
